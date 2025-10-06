@@ -2,6 +2,10 @@
 
 This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
 
+## Demo
+
+![WhatsAppVideo2025-10-06at22 50 15-ezgif com-video-to-gif-converter](https://github.com/user-attachments/assets/8651363c-1ff2-434c-8bfa-a8da7981eda1)
+
 ## Get started
 
 1. Install dependencies
