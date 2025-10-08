@@ -1,12 +1,9 @@
 import React, { useEffect, useState } from "react";
 import {
   Dimensions,
-  Image,
-  ImageSourcePropType,
   LayoutRectangle,
   StyleProp,
   StyleSheet,
-  Text,
   TextStyle,
   View,
   ViewStyle,
@@ -17,15 +14,16 @@ import {
   GestureHandlerRootView,
 } from "react-native-gesture-handler";
 import Animated, {
+  clamp,
+  runOnJS,
   useAnimatedStyle,
   useSharedValue,
   withSpring,
-  runOnJS,
-  clamp,
 } from "react-native-reanimated";
 
 interface DraggableTextProps {
   text: string;
+  textColor?: string;
   backgroundColor?: string;
   textStyle?: StyleProp<TextStyle>;
   style?: StyleProp<ViewStyle>;
@@ -35,6 +33,7 @@ interface DraggableTextProps {
 
 const DraggableText: React.FC<DraggableTextProps> = ({
   text,
+  textColor = "#fff",
   backgroundColor = "transparent",
   textStyle,
   style,
@@ -58,6 +57,8 @@ const DraggableText: React.FC<DraggableTextProps> = ({
   const isDragging = useSharedValue(false);
   const isScaling = useSharedValue(false);
   const isMeasured = useSharedValue(false);
+  const isCenteredX = useSharedValue(false);
+  const isCenteredY = useSharedValue(false);
   const baseFontSize = 22;
 
   // --- Pan gesture (drag)
@@ -78,8 +79,31 @@ const DraggableText: React.FC<DraggableTextProps> = ({
       const maxX = canvas.width - textSize.width;
       const maxY = canvas.height - textSize.height;
 
-      translateX.value = clamp(newX, minX, maxX);
-      translateY.value = clamp(newY, minY, maxY);
+      translateX.value = Math.round(clamp(newX, minX, maxX));
+      translateY.value = Math.round(clamp(newY, minY, maxY));
+
+      // Center coordinates
+      const centerX = (canvas.width - textSize.width) / 2;
+      const centerY = (canvas.height - textSize.height) / 2;
+
+      // Calculate distances
+      const diffX = Math.abs(translateX.value - centerX);
+      const diffY = Math.abs(translateY.value - centerY);
+
+      // Snap if within 5px range
+      if (diffX <= 3) {
+        translateX.value = centerX;
+        isCenteredX.value = true;
+      } else {
+        isCenteredX.value = false;
+      }
+
+      if (diffY <= 3) {
+        translateY.value = centerY;
+        isCenteredY.value = true;
+      } else {
+        isCenteredY.value = false;
+      }
     })
     .onEnd(() => {
       translateX.value = withSpring(translateX.value);
@@ -113,11 +137,20 @@ const DraggableText: React.FC<DraggableTextProps> = ({
       { translateX: translateX.value },
       { translateY: translateY.value },
     ],
-    borderColor: isDragging.value || isScaling.value ? "#fff" : "transparent",
+    borderColor:
+      isDragging.value || isScaling.value ? textColor : "transparent",
   }));
 
   const animatedTextStyle = useAnimatedStyle(() => ({
     fontSize: baseFontSize * scale.value,
+  }));
+
+  const verticalLineStyle = useAnimatedStyle(() => ({
+    opacity: isDragging.value && isCenteredX.value ? 1 : 0,
+  }));
+
+  const horizontalLineStyle = useAnimatedStyle(() => ({
+    opacity: isDragging.value && isCenteredY.value ? 1 : 0,
   }));
 
   // --- Center text when first measured
@@ -144,6 +177,9 @@ const DraggableText: React.FC<DraggableTextProps> = ({
           runOnJS(setCanvas)({ width, height });
         }}
       >
+        <Animated.View style={[styles.verticalLine, verticalLineStyle]} />
+        <Animated.View style={[styles.horizontalLine, horizontalLineStyle]} />
+
         <GestureDetector gesture={combinedGesture}>
           <Animated.View
             style={[
@@ -162,7 +198,12 @@ const DraggableText: React.FC<DraggableTextProps> = ({
             }}
           >
             <Animated.Text
-              style={[styles.text, textStyle, animatedTextStyle]}
+              style={[
+                styles.text,
+                { color: textColor },
+                textStyle,
+                animatedTextStyle,
+              ]}
               onPress={() => onChangeText?.(text)}
             >
               {text}
@@ -193,5 +234,21 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontWeight: "600",
     textAlign: "center",
+  },
+  horizontalLine: {
+    position: "absolute",
+    top: "50%",
+    left: 0,
+    right: 0,
+    height: 1,
+    backgroundColor: "black",
+  },
+  verticalLine: {
+    position: "absolute",
+    alignSelf: "center",
+    top: 0,
+    bottom: 0,
+    width: 1,
+    backgroundColor: "black",
   },
 });
